@@ -8,16 +8,50 @@ from cam_params import CameraParams
 
 dims=(10,7)
 
-def calibrate(imagedir):
+def calibrate(imagedir, autodelete=True, validate=True):
   nimages = 0
   datapoints = []
   im_dims = (0,0)
+  im_cnt = 0
   for f in os.listdir(imagedir):
     if (f.find('pgm')<0):
       continue
     image = imagedir+'/'+f
     grey = cv.LoadImage(image,cv.CV_LOAD_IMAGE_GRAYSCALE)
     found,points=cv.FindChessboardCorners(grey,dims,cv.CV_CALIB_CB_ADAPTIVE_THRESH)
+    if found == 0:
+      print 'Failed to find corners.'
+      if (autodelete):
+        print 'Deleting image: ' + f
+        os.remove(image)
+      else:
+        print 'Skipping image: ' + f
+    elif validate:
+      grey_c = cv.CloneImage(grey)
+      cv.DrawChessboardCorners(grey_c,dims,points,found)
+      #show the final image
+      if (grey_c.width > 640):
+        tmp=cv.CreateImage((grey_c.width/2,grey_c.height/2),8,grey_c.channels)
+        cv.Resize(grey_c,tmp)
+        cv.ShowImage("calibrate", tmp)
+      else:
+        cv.ShowImage("calibrate", gray_c)
+      #wait indefinitely
+      print 'Use this image/quit ? (y)es/(n)o/(d)elete/(q)uit'
+      key = chr(cv.WaitKey(0) & 255)
+      if (key == 'y'):
+        print 'Keeping image: ' + f + ' : ', im_cnt
+        im_cnt+=1
+      elif (key == 'q'):
+        break
+      elif (key == 'd'):
+        print 'Deleting original image: ' + f
+        os.remove(image)
+        continue
+      else:
+        print 'Skipping image: ' + f
+        continue
+      
     points=cv.FindCornerSubPix(grey,points,(11,11),(-1,-1),(cv.CV_TERMCRIT_EPS+cv.CV_TERMCRIT_ITER,30,0.1))
 
     if (found):
@@ -262,7 +296,7 @@ if __name__ == '__main__':
     gather(imagedir, opts.debayer, opts.width, opts.height)
 
   if (opts.calibrate):
-    calibrate(imagedir)
+    calibrate(imagedir, True, False)
 
   if (opts.dewarp):
     dewarp(imagedir)
